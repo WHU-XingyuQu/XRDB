@@ -185,7 +185,7 @@ impl<'a> Iterator for Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    fn new(sql_text: &'a str) -> Self {
+    pub fn new(sql_text: &'a str) -> Self {
         Self{
             iter: sql_text.chars().peekable(),
         }
