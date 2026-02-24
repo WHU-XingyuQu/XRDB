@@ -9,7 +9,7 @@ pub enum DataType {
     String,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Value {
     Boolean(bool),
     Integer(i64),

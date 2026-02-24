@@ -1,7 +1,9 @@
 use planner::Planner;
 
 use crate::error::Result;
+use crate::sql::engine::Transaction;
 use crate::sql::parser::ast::Statement;
+use crate::sql::executor::{Executor, ResultSet};
 use super::{
     schema::Table,
     parser::ast::{self, Expression},
@@ -30,6 +32,10 @@ pub struct Plan(pub Node);
 impl Plan {
     pub fn build(stmt: Statement) -> Self{
         Planner::new().build(stmt)
+    }
+
+    pub fn execute<T: Transaction>(self, txn: &mut T) -> Result<ResultSet> {
+        <dyn Executor<T>>::build(self.0).execute(txn)
     }
 }
 
