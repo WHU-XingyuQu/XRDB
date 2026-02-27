@@ -92,10 +92,10 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         todo!()
     }
 
-    // 原始值           编码后
-    // 97 98 99     -> 97 98 99 0 0
-    // 97 98 0 99   -> 97 98 0 255 99 0 0
-    // 97 98 0 0 99 -> 97 98 0 255 0 255 99 0 0
+    // original value            after encoding
+    // 97 98 99         ->     97 98 99 0 0
+    // 97 98 0 99       ->     97 98 0 255 99 0 0
+    // 97 98 0 0 99     ->     97 98 0 255 0 255 99 0 0
     fn serialize_bytes(self, v: &[u8]) -> Result<()> {
         let mut res = Vec::new();
         for e in v.into_iter() {
@@ -104,7 +104,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
                 b => res.push(*b),
             }
         }
-        // 放 0 0 表示结尾
+        // set 0 0 as completed
         res.extend([0, 0]);
 
         self.output.extend(res);
@@ -130,7 +130,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         todo!()
     }
 
-    // 类似 MvccKey::NextVersion
+    // similar to MvccKey::NextVersion
     fn serialize_unit_variant(
         self,
         name: &'static str,
@@ -148,7 +148,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         todo!()
     }
 
-    // 类似 TxnAcvtive(Version)
+    // similar to TxnAcvtive(Version)
     fn serialize_newtype_variant<T>(
         self,
         name: &'static str,
@@ -179,7 +179,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         todo!()
     }
 
-    // 类似 TxnWrite(Version, Vec<u8>)
+    // similar to TxnWrite(Version, Vec<u8>)
     fn serialize_tuple_variant(
         self,
         name: &'static str,
@@ -272,8 +272,8 @@ impl<'de> Deserializer<'de> {
         bytes
     }
 
-    // - 如果这个 0 之后的值是 255，说明是原始字符串中的 0，则继续解析
-    // - 如果这个 0 之后的值是 0，说明是字符串的结尾
+    // - if the value behind ‘0’ is 255, it turns out the '0' is in the original string, continue parsing
+    // - if the value behind '0' is 0, it turns out it is at the end of the string
     fn next_bytes(&mut self) -> Result<Vec<u8>> {
         let mut res = Vec::new();
         let mut iter = self.input.iter().enumerate();

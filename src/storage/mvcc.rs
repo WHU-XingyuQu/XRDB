@@ -99,25 +99,25 @@ impl MvccKeyPrefix {
 }
 
 impl<E: Engine> MvccTransaction<E> {
-    // 开启事务
+    // Start Transaction
     pub fn begin(eng: Arc<Mutex<E>>) -> Result<Self> {
-        // 获取存储引擎
+        // get storage engine
         let mut engine = eng.lock()?;
-        // 获取最新的版本号
+        // get the newest version number
         let next_version = match engine.get(MvccKey::NextVersion.encode()?)? {
             Some(value) => bincode::deserialize(&value)?,
             None => 1,
         };
-        // 保存下一个 version
+        // save the next version
         engine.set(
             MvccKey::NextVersion.encode()?,
             bincode::serialize(&(next_version + 1))?,
         )?;
 
-        // 获取当前活跃的事务列表
+        // catch the list of current active versions
         let active_versions = Self::scan_active(&mut engine)?;
 
-        // 当前事务加入到活跃事务列表中
+        // add the current transaction to the list
         engine.set(MvccKey::TxnAcvtive(next_version).encode()?, vec![])?;
 
         Ok(Self {
@@ -129,13 +129,13 @@ impl<E: Engine> MvccTransaction<E> {
         })
     }
 
-    // 提交事务
+    // commit transaction
     pub fn commit(&self) -> Result<()> {
-        // 获取存储引擎
+        // get storage engine
         let mut engine = self.engine.lock()?;
 
         let mut delete_keys = Vec::new();
-        // 找到这个当前事务的 TxnWrite 信息
+        // find the information of current transaction's TxnWrite information
         let mut iter = engine.scan_prefix(MvccKeyPrefix::TxnWrite(self.state.version).encode()?);
         while let Some((key, _)) = iter.next().transpose()? {
             delete_keys.push(key);
@@ -146,17 +146,17 @@ impl<E: Engine> MvccTransaction<E> {
             engine.delete(key)?;
         }
 
-        // 从活跃事务列表中删除
+        // delete from current active list
         engine.delete(MvccKey::TxnAcvtive(self.state.version).encode()?)
     }
 
     // 回滚事务
     pub fn rollback(&self) -> Result<()> {
-        // 获取存储引擎
+        // get storage engine
         let mut engine = self.engine.lock()?;
 
         let mut delete_keys = Vec::new();
-        // 找到这个当前事务的 TxnWrite 信息
+        // find the information of current transaction's TxnWrite information
         let mut iter = engine.scan_prefix(MvccKeyPrefix::TxnWrite(self.state.version).encode()?);
         while let Some((key, _)) = iter.next().transpose()? {
             match MvccKey::decode(key.clone())? {
@@ -178,7 +178,7 @@ impl<E: Engine> MvccTransaction<E> {
             engine.delete(key)?;
         }
 
-        // 从活跃事务列表中删除
+        // delete from current active list
         engine.delete(MvccKey::TxnAcvtive(self.state.version).encode()?)
     }
 
@@ -191,15 +191,15 @@ impl<E: Engine> MvccTransaction<E> {
     }
 
     pub fn get(&self, key: Vec<u8>) -> Result<Option<Vec<u8>>> {
-        // 获取存储引擎
+        // get storage engine
         let mut engine = self.engine.lock()?;
 
         // version: 9
-        // 扫描的 version 的范围应该是 0-8
+        // the range of version scan is 0-8
         let from = MvccKey::Version(key.clone(), 0).encode()?;
         let to = MvccKey::Version(key.clone(), self.state.version).encode()?;
         let mut iter = engine.scan(from..=to).rev();
-        // 从最新的版本开始读取，找到一个最新的可见的版本
+        // read from the newest version, and find the newest visible one
         while let Some((key, value)) = iter.next().transpose()? {
             match MvccKey::decode(key.clone())? {
                 MvccKey::Version(_, version) => {
@@ -221,11 +221,11 @@ impl<E: Engine> MvccTransaction<E> {
     pub fn scan_prefix(&self, prefix: Vec<u8>) -> Result<Vec<ScanResult>> {
         let mut eng = self.engine.lock()?;
         let mut enc_prefix = MvccKeyPrefix::Version(prefix).encode()?;
-        // 原始值           编码后
-        // 97 98 99     -> 97 98 99 0 0
-        // 前缀原始值        前缀编码后
-        // 97 98        -> 97 98 0 0         -> 97 98
-        // 去掉最后的 [0, 0] 后缀
+        // original value      after encoding
+        //    97 98 99     ->   97 98 99 0 0
+        // prefix:    original value        after encoding
+        //              97 98        ->      97 98 0 0         -> 97 98
+        // moving [0, 0] suffix
         enc_prefix.truncate(enc_prefix.len() - 2);
 
         let mut iter = eng.scan_prefix(enc_prefix);
@@ -255,12 +255,12 @@ impl<E: Engine> MvccTransaction<E> {
             .collect())
     }
 
-    // 更新/删除数据
+    // update/delete data
     fn write_inner(&self, key: Vec<u8>, value: Option<Vec<u8>>) -> Result<()> {
-        // 获取存储引擎
+        // get storage engine
         let mut engine = self.engine.lock()?;
 
-        // 检测冲突
+        // Check for conflicts
         //  3 4 5
         //  6
         //  key1-3 key2-4 key3-5
@@ -275,12 +275,12 @@ impl<E: Engine> MvccTransaction<E> {
         )
             .encode()?;
         let to = MvccKey::Version(key.clone(), u64::MAX).encode()?;
-        //  当前活跃事务列表 3 4 5
-        //  当前事务 6
-        // 只需要判断最后一个版本号
-        // 1. key 按照顺序排列，扫描出的结果是从小到大的
-        // 2. 假如有新的的事务修改了这个 key，比如 10，修改之后 10 提交了，那么 6 再修改这个 key 就是冲突的
-        // 3. 如果是当前活跃事务修改了这个 key，比如 4，那么事务 5 就不可能修改这个 key
+        //  list of current active transactions : 3 4 5
+        //  current transaction : 6
+        //  only need to check the last number of the list
+        // 1. key is in order, the scan result is small -> big
+        // 2. If a new transaction changes this key, for example 10, 10 commits after changing, then it is a conflict that 6 also changes this key
+        // 3. If the current transaction changes this key, for example 4, then transaction 5 can not change this key
         if let Some((k, _)) = engine.scan(from..=to).last().transpose()? {
             match MvccKey::decode(k.clone())? {
                 MvccKey::Version(_, version) => {
@@ -298,13 +298,13 @@ impl<E: Engine> MvccTransaction<E> {
             }
         }
 
-        // 记录这个 version 写入了哪些 key，用于回滚事务
+        // record keys that are changed by this version, for rollback
         engine.set(
             MvccKey::TxnWrite(self.state.version, key.clone()).encode()?,
             vec![],
         )?;
 
-        // 写入实际的 key value 数据
+        // write real key value data
         engine.set(
             MvccKey::Version(key.clone(), self.state.version).encode()?,
             bincode::serialize(&value)?,
@@ -312,7 +312,7 @@ impl<E: Engine> MvccTransaction<E> {
         Ok(())
     }
 
-    // 扫描获取当前活跃事务列表
+    // scan to get list of current active transactions
     fn scan_active(engine: &mut MutexGuard<E>) -> Result<HashSet<Version>> {
         let mut active_versions = HashSet::new();
         let mut iter = engine.scan_prefix(MvccKeyPrefix::TxnAcvtive.encode()?);
