@@ -81,3 +81,15 @@ The project includes rich unit tests covering Parser, Planner, Executor, and MVC
 cargo test
 
 ```
+
+## 🗺️ Roadmap & Future Work
+
+As a continuously evolving foundational system learning project, XRDB has vast room for expansion. The next phase of development will focus on the following core modules, which also serves as an excellent path to deepening the understanding of database principles:
+
+* **Comprehensive SQL Syntax Ecosystem**: Building upon basic insert and scan operations, we will complete `UPDATE` and `DELETE` support. We plan to gradually introduce advanced syntax such as `JOIN` (multi-table joins), `GROUP BY` (aggregation functions), and `ORDER BY` (sorting), as well as support for secondary index creation, perfecting relational algebra processing capabilities.
+* **Advanced Query Optimizer**: Transitioning from the current simple sequential execution to a modern database optimizer. Plans include implementing Rule-Based Optimization (RBO, e.g., predicate pushdown, column pruning) and exploring foundational Cost-Based Optimization (CBO) to make execution plan generation smarter and more efficient.
+* **Industrial-Grade Storage & Data Structures**: Moving beyond the existing basic KV abstraction to fully implement classic **B+ Trees** or **LSM Trees (Log-Structured Merge-tree)** in the disk engine. This will not only significantly boost range query and concurrent write performance for massive data but is also a necessary step to thoroughly master the database I/O model.
+* **Practical Applications for Cutting-Edge Scenarios**:
+    * **Edge Computing & Embedded Exploration**: Further optimizing the system's memory footprint and log compaction mechanisms, exploring its potential as a lightweight embedded storage solution suitable for modern edge computing scenarios.
+    * **AI Infrastructure Integration**: Attempting to introduce customized KV-Cache management mechanisms or simple vectorized execution support in the underlying storage, exploring how traditional relational databases can better serve business needs in the LLM era, such as Retrieval-Augmented Generation (RAG).
+    * **Network Protocol Layer Integration**: Implementing standard Wire Protocols compatible with PostgreSQL or MySQL, allowing XRDB to be directly connected and managed by mainstream visual database clients like Navicat and DBeaver.
