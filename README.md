@@ -70,8 +70,7 @@ This project has minimal dependencies, ensuring high reproducibility. You only n
 **1. Clone the repository**
 
 ```bash
-git clone <your-repository-url>
-cd XRDB
+git clone https://github.com/WHU-XingyuQu/XRDB.git
 
 ```
 
